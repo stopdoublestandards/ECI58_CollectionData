@@ -1,11 +1,9 @@
 import urllib.request
+import http.cookiejar
 import json
 import datetime
 import base64
 import os
-
-PROGRESSION_API = "https://eci.ec.europa.eu/058/public/api/report/progression"
-MAP_API = "https://eci.ec.europa.eu/058/public/api/report/map"
 
 GITHUB_REPO = "stopdoublestandards/ECI58_CollectionData"
 FILE_PATH = "eci_signatures.json"
@@ -88,31 +86,47 @@ def update_github_file(new_data):
         print(f"Failed to update file on GitHub: {error_msg}")
         exit(1)
 
-def fetch_json(url):
-    # These headers are the secret to bypassing the 403 Forbidden block
-    req = urllib.request.Request(url, headers={
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Referer': 'https://eci.ec.europa.eu/058/public/',
-        'Origin': 'https://eci.ec.europa.eu',
-    })
+def get_eci_data():
+    """Fetches data from the EU APIs using a Session Cookie to bypass the WAF."""
+    cookie_jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
+    
+    # Full browser headers required by the EU firewall
+    opener.addheaders = [
+        ('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'),
+        ('Accept', 'application/json, text/plain, */*'),
+        ('Accept-Language', 'en-US,en;q=0.9'),
+        ('Referer', 'https://eci.ec.europa.eu/058/public/'),
+        ('Origin', 'https://eci.ec.europa.eu'),
+        ('Connection', 'keep-alive')
+    ]
+    
     try:
-        with urllib.request.urlopen(req) as response:
-            return json.loads(response.read().decode('utf-8'))
+        # 1. Visit the main page to establish the session cookie
+        print("Establishing session with EU server to bypass firewall...")
+        opener.open("https://eci.ec.europa.eu/058/public/")
+        
+        # 2. Fetch the totals
+        print("Fetching progression totals...")
+        resp_prog = opener.open("https://eci.ec.europa.eu/058/public/api/report/progression")
+        prog_data = json.loads(resp_prog.read().decode('utf-8'))
+        total_signatures = prog_data.get("signatureCount", 0)
+        
+        # 3. Fetch the geographic map data using the active session
+        print("Fetching country distribution...")
+        resp_map = opener.open("https://eci.ec.europa.eu/058/public/api/report/map")
+        map_data = json.loads(resp_map.read().decode('utf-8'))
+        
+        return total_signatures, map_data
     except Exception as e:
-        print(f"Failed to fetch {url}: {e}")
-        return None
+        print(f"FATAL: Failed to fetch data from EU API: {e}")
+        exit(1)
 
 def main():
+    # Use modern Python timezone logic
     timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     
-    print("Fetching total signatures...")
-    progression_data = fetch_json(PROGRESSION_API) or {}
-    total_signatures = progression_data.get("signatureCount", 0)
-
-    print("Fetching country map distribution...")
-    map_data = fetch_json(MAP_API) or []
-    
+    total_signatures, map_data = get_eci_data()
     countries_clean = []
     
     for item in map_data:
@@ -129,7 +143,7 @@ def main():
                 "percentage": percentage
             })
             
-    # Sort alphabetically by country name just like the website table
+    # Sort alphabetically by country name exactly like the public table
     countries_clean = sorted(countries_clean, key=lambda x: x["country"])
 
     clean_snapshot = {
@@ -139,12 +153,13 @@ def main():
     }
     
     if not countries_clean:
-        print("Warning: The country array is still empty. The API might have changed.")
+        print("Error: The country array is still empty.")
+        exit(1)
     else:
         print(f"Successfully retrieved data for {len(countries_clean)} countries.")
         
     print("\n--- JSON TO BE SAVED ---")
-    print(json.dumps(clean_snapshot, indent=2)[:800] + "\n...\n")
+    print(json.dumps(clean_snapshot, indent=2)[:500] + "\n...\n")
     
     update_github_file(clean_snapshot)
 
