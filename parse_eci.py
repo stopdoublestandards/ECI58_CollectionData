@@ -3,12 +3,24 @@ import json
 import datetime
 import base64
 import os
-import re
 
-URL = "https://citizens-initiative.europa.eu/initiatives/details/2025/000006_en"
+PROGRESSION_API = "https://eci.ec.europa.eu/058/public/api/report/progression"
+MAP_API = "https://eci.ec.europa.eu/058/public/api/report/map"
+
 GITHUB_REPO = "stopdoublestandards/ECI58_CollectionData"
 FILE_PATH = "eci_signatures.json"
 BRANCH = "main"
+
+# The API returns 2-letter codes. This maps them back to the table format.
+COUNTRY_MAP = {
+    "AT": "Austria", "BE": "Belgium", "BG": "Bulgaria", "HR": "Croatia",
+    "CY": "Cyprus", "CZ": "Czechia", "DK": "Denmark", "EE": "Estonia",
+    "FI": "Finland", "FR": "France", "DE": "Germany", "GR": "Greece",
+    "HU": "Hungary", "IE": "Ireland", "IT": "Italy", "LV": "Latvia",
+    "LT": "Lithuania", "LU": "Luxembourg", "MT": "Malta", "NL": "Netherlands",
+    "PL": "Poland", "PT": "Portugal", "RO": "Romania", "SK": "Slovakia",
+    "SI": "Slovenia", "ES": "Spain", "SE": "Sweden"
+}
 
 def update_github_file(new_data):
     token = os.environ.get("GITHUB_TOKEN")
@@ -76,108 +88,65 @@ def update_github_file(new_data):
         print(f"Failed to update file on GitHub: {error_msg}")
         exit(1)
 
-def main():
-    print(f"Fetching HTML from {URL}...")
-    req = urllib.request.Request(URL, headers={'User-Agent': 'Mozilla/5.0'})
+def fetch_json(url):
+    # These headers are the secret to bypassing the 403 Forbidden block
+    req = urllib.request.Request(url, headers={
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://eci.ec.europa.eu/058/public/',
+        'Origin': 'https://eci.ec.europa.eu',
+    })
     try:
         with urllib.request.urlopen(req) as response:
-            html = response.read().decode('utf-8')
+            return json.loads(response.read().decode('utf-8'))
     except Exception as e:
-        print(f"Failed to fetch EU URL: {e}")
-        exit(1)
+        print(f"Failed to fetch {url}: {e}")
+        return None
 
-    print("Parsing HTML using Regex...")
+def main():
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     
-    # 1. Find all tables in the raw HTML string
-    tables = re.findall(r'<table[^>]*>(.*?)</table>', html, re.IGNORECASE | re.DOTALL)
+    print("Fetching total signatures...")
+    progression_data = fetch_json(PROGRESSION_API) or {}
+    total_signatures = progression_data.get("signatureCount", 0)
+
+    print("Fetching country map distribution...")
+    map_data = fetch_json(MAP_API) or []
     
-    target_table_html = None
-    for t in tables:
-        # Identify the correct table by its headers
-        if 'Country' in t and 'Signatures' in t and 'Threshold' in t:
-            target_table_html = t
-            break
-            
-    if not target_table_html:
-        print("Error: Could not find the signatures table in the HTML.")
-        print(f"Diagnostics: Found {len(tables)} tables total.")
-        exit(1)
-        
-    data_list = []
-    total_signatures = 0
+    countries_clean = []
     
-    # 2. Extract every row from the target table
-    rows = re.findall(r'<tr[^>]*>(.*?)</tr>', target_table_html, re.IGNORECASE | re.DOTALL)
-    
-    for row in rows:
-        # Extract every cell (handling both <th> and <td> tags)
-        cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', row, re.IGNORECASE | re.DOTALL)
-        
-        clean_cells = []
-        for c in cells:
-            # Strip away any internal HTML tags (like <div> or <span> inside the cell)
-            c = re.sub(r'<[^>]+>', '', c)
-            # Remove HTML entities like &nbsp; which cause crashes
-            c = re.sub(r'&[a-zA-Z0-9#]+;', ' ', c)
-            clean_cells.append(c.strip())
+    for item in map_data:
+        if isinstance(item, dict):
+            code = item.get("countryCode", "Unknown")
+            count = item.get("signatureCount", 0)
+            threshold = item.get("threshold", 0)
+            percentage = item.get("percentage", 0.0)
             
-        # We need at least 2 columns to do anything useful
-        if len(clean_cells) < 2:
-            continue
-            
-        country = clean_cells[0]
-        
-        # Skip the header row itself
-        if "Country" in country or "country" in country.lower():
-            continue
-            
-        # Strip everything except digits from the signature count
-        sig_str = re.sub(r'[^\d]', '', clean_cells[1])
-        if not sig_str:
-            continue
-            
-        # The bottom row usually contains the cumulative total
-        if "Total" in country:
-            total_signatures = int(sig_str)
-            continue
-            
-        try:
-            signatures = int(sig_str)
-            
-            # Safely parse threshold (extract only digits)
-            threshold_str = re.sub(r'[^\d]', '', clean_cells[2]) if len(clean_cells) > 2 else '0'
-            threshold = int(threshold_str) if threshold_str else 0
-            
-            # Safely parse percentage (extract digits and decimal point)
-            pct_str = re.sub(r'[^\d.]', '', clean_cells[3]) if len(clean_cells) > 3 else '0'
-            percentage = float(pct_str) if pct_str else 0.0
-            
-            data_list.append({
-                "country": country,
-                "signatures": signatures,
+            countries_clean.append({
+                "country": COUNTRY_MAP.get(code, code),
+                "signatures": count,
                 "threshold": threshold,
                 "percentage": percentage
             })
-        except ValueError as e:
-            print(f"Skipping row due to error: {e}. Row data: {clean_cells}")
-            continue
+            
+    # Sort alphabetically by country name just like the website table
+    countries_clean = sorted(countries_clean, key=lambda x: x["country"])
 
-    if not data_list:
-        print("Error: Table was found, but no country data could be extracted.")
-        exit(1)
-
-    # Use modern Python timezone logic (fixes the deprecation warning)
-    new_snapshot = {
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+    clean_snapshot = {
+        "timestamp": timestamp,
         "total_signatures": total_signatures,
-        "countries": data_list
+        "countries": countries_clean
     }
     
-    print(f"Successfully scraped {len(data_list)} countries. Total: {total_signatures}")
-    print("\n--- JSON PREVIEW ---")
-    print(json.dumps(new_snapshot, indent=2)[:500] + "\n...\n")
+    if not countries_clean:
+        print("Warning: The country array is still empty. The API might have changed.")
+    else:
+        print(f"Successfully retrieved data for {len(countries_clean)} countries.")
+        
+    print("\n--- JSON TO BE SAVED ---")
+    print(json.dumps(clean_snapshot, indent=2)[:800] + "\n...\n")
     
-    update_github_file(new_snapshot)
+    update_github_file(clean_snapshot)
 
 if __name__ == "__main__":
     main()
