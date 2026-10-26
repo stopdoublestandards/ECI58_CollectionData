@@ -47710,5 +47710,173 @@
         "percentage": 0.87
       }
     ]
+  },
+  {
+    "timestamp": "2026-10-26T23:02:31Z",
+    "total_signatures": 5810,
+    "countries": [
+      {
+        "country": "Austria",
+        "signatures": 168,
+        "threshold": 14400,
+        "percentage": 1.17
+      },
+      {
+        "country": "Belgium",
+        "signatures": 279,
+        "threshold": 15840,
+        "percentage": 1.76
+      },
+      {
+        "country": "Bulgaria",
+        "signatures": 42,
+        "threshold": 12240,
+        "percentage": 0.34
+      },
+      {
+        "country": "Croatia",
+        "signatures": 44,
+        "threshold": 8640,
+        "percentage": 0.51
+      },
+      {
+        "country": "Cyprus",
+        "signatures": 19,
+        "threshold": 4320,
+        "percentage": 0.44
+      },
+      {
+        "country": "Czechia",
+        "signatures": 30,
+        "threshold": 15120,
+        "percentage": 0.2
+      },
+      {
+        "country": "Denmark",
+        "signatures": 51,
+        "threshold": 10800,
+        "percentage": 0.47
+      },
+      {
+        "country": "Estonia",
+        "signatures": 12,
+        "threshold": 5040,
+        "percentage": 0.24
+      },
+      {
+        "country": "Finland",
+        "signatures": 99,
+        "threshold": 10800,
+        "percentage": 0.92
+      },
+      {
+        "country": "France",
+        "signatures": 675,
+        "threshold": 58320,
+        "percentage": 1.16
+      },
+      {
+        "country": "Germany",
+        "signatures": 566,
+        "threshold": 69120,
+        "percentage": 0.82
+      },
+      {
+        "country": "Greece",
+        "signatures": 118,
+        "threshold": 15120,
+        "percentage": 0.78
+      },
+      {
+        "country": "Hungary",
+        "signatures": 43,
+        "threshold": 15120,
+        "percentage": 0.28
+      },
+      {
+        "country": "Ireland",
+        "signatures": 249,
+        "threshold": 10080,
+        "percentage": 2.47
+      },
+      {
+        "country": "Italy",
+        "signatures": 1202,
+        "threshold": 54720,
+        "percentage": 2.2
+      },
+      {
+        "country": "Latvia",
+        "signatures": 16,
+        "threshold": 6480,
+        "percentage": 0.25
+      },
+      {
+        "country": "Lithuania",
+        "signatures": 31,
+        "threshold": 7920,
+        "percentage": 0.39
+      },
+      {
+        "country": "Luxembourg",
+        "signatures": 9,
+        "threshold": 4320,
+        "percentage": 0.21
+      },
+      {
+        "country": "Malta",
+        "signatures": 11,
+        "threshold": 4320,
+        "percentage": 0.25
+      },
+      {
+        "country": "Netherlands",
+        "signatures": 873,
+        "threshold": 22320,
+        "percentage": 3.91
+      },
+      {
+        "country": "Poland",
+        "signatures": 157,
+        "threshold": 38160,
+        "percentage": 0.41
+      },
+      {
+        "country": "Portugal",
+        "signatures": 274,
+        "threshold": 15120,
+        "percentage": 1.81
+      },
+      {
+        "country": "Romania",
+        "signatures": 100,
+        "threshold": 23760,
+        "percentage": 0.42
+      },
+      {
+        "country": "Slovakia",
+        "signatures": 36,
+        "threshold": 10800,
+        "percentage": 0.33
+      },
+      {
+        "country": "Slovenia",
+        "signatures": 46,
+        "threshold": 6480,
+        "percentage": 0.71
+      },
+      {
+        "country": "Spain",
+        "signatures": 528,
+        "threshold": 43920,
+        "percentage": 1.2
+      },
+      {
+        "country": "Sweden",
+        "signatures": 132,
+        "threshold": 15120,
+        "percentage": 0.87
+      }
+    ]
   }
 ]
